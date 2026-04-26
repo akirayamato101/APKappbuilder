@@ -21,13 +21,20 @@ jobs:
       - name: Init TWA
         run: |
           mkdir twa && cd twa
-          bubblewrap init --manifest https://guileless-brioche-558e64.netlify.app/manifest.json --directory .
+          echo "" | bubblewrap init \
+            --manifest https://guileless-brioche-558e64.netlify.app/manifest.json \
+            --directory . || true
       - name: Generate keystore
         run: |
           cd twa
-          keytool -genkey -v -keystore burger.keystore -alias burger -keyalg RSA -keysize 2048 -validity 10000 -storepass burgerstreet2026 -keypass burgerstreet2026 -dname "CN=Burger Street,O=BS,C=PH"
+          keytool -genkey -v -keystore burger.keystore -alias burger \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass burgerstreet2026 -keypass burgerstreet2026 \
+            -dname "CN=Burger Street,O=BS,C=PH"
       - name: Build APK
-        run: cd twa && bubblewrap build --skipPwaValidation
+        run: |
+          cd twa
+          echo "burgerstreet2026" | bubblewrap build --skipPwaValidation
       - uses: actions/upload-artifact@v4
         with:
           name: BurgerStreet-APK
