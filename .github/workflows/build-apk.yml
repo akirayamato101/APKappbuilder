@@ -18,14 +18,17 @@ jobs:
       - name: Clone TWA template
         run: git clone https://github.com/GoogleChromeLabs/svgomg-twa.git twa
 
+      - name: Show template structure
+        run: find twa -name "*.xml" | head -20 && find twa -name "*.gradle" | head -10
+
       - name: Patch TWA config
         run: |
           cd twa
-          sed -i 's/svgomg.firebaseapp.com/guileless-brioche-558e64.netlify.app/g' app/build.gradle
-          sed -i 's|https://svgomg.firebaseapp.com|https://guileless-brioche-558e64.netlify.app|g' app/build.gradle
-          sed -i 's/applicationId "com.jakearchibald.svgomg"/applicationId "com.burgerstreet.inventory"/' app/build.gradle
-          sed -i 's/SVGOMG/Burger Street/g' app/src/main/res/values/strings.xml
-          sed -i 's/svgomg/Burger Street/g' app/src/main/res/values/strings.xml
+          find . -name "*.gradle" -exec sed -i 's/svgomg.firebaseapp.com/guileless-brioche-558e64.netlify.app/g' {} \;
+          find . -name "*.gradle" -exec sed -i 's|https://svgomg.firebaseapp.com|https://guileless-brioche-558e64.netlify.app|g' {} \;
+          find . -name "*.gradle" -exec sed -i 's/com.jakearchibald.svgomg/com.burgerstreet.inventory/g' {} \;
+          find . -name "strings.xml" -exec sed -i 's/SVGOMG/Burger Street/g' {} \;
+          find . -name "strings.xml" -exec sed -i 's/svgomg/Burger Street/g' {} \;
 
       - name: Build unsigned APK
         run: |
