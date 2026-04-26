@@ -1,0 +1,78 @@
+name: Build Burger Street APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        run: |
+          sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"
+
+      - name: Configure Bubblewrap (skip interactive prompts)
+        run: |
+          mkdir -p ~/.bubblewrap
+          cat > ~/.bubblewrap/config.json << 'EOF'
+          {
+            "jdkPath": "${{ env.JAVA_HOME }}",
+            "androidSdkPath": "${{ env.ANDROID_SDK_ROOT }}"
+          }
+          EOF
+
+      - name: Initialize TWA project from live manifest
+        run: |
+          mkdir -p twa-project && cd twa-project
+          bubblewrap init \
+            --manifest https://guileless-brioche-558e64.netlify.app/manifest.json \
+            --directory .
+
+      - name: Generate signing keystore
+        run: |
+          cd twa-project
+          keytool -genkey -v \
+            -keystore burger-street.keystore \
+            -alias burger-street \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -keypass "${{ secrets.KEYSTORE_PASSWORD }}" \
+            -dname "CN=Burger Street, OU=App, O=BurgerStreet, L=PH, S=PH, C=PH"
+
+      - name: Build signed APK
+        run: |
+          cd twa-project
+          bubblewrap build \
+            --skipPwaValidation
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: burger-street-apk
+          path: twa-project/app-release-signed.apk
+          retention-days: 30
