@@ -5,34 +5,47 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
+
       - uses: android-actions/setup-android@v3
-      - name: Install Android SDK components
-        run: sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"
-      - name: Create Bubblewrap config
-        run: |
-          mkdir -p ~/.bubblewrap
-          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_SDK_ROOT\"}" > ~/.bubblewrap/config.json
-      - name: Init TWA project
-        run: |
-          mkdir twa && cd twa
-          bubblewrap init --manifest https://guileless-brioche-558e64.netlify.app/manifest.json --directory .
-      - name: Generate keystore
+
+      - name: Install SDK
+        run: sdkmanager "build-tools;34.0.0" "platforms;android-34"
+
+      - name: Clone TWA template
+        run: git clone https://github.com/GoogleChromeLabs/svgomg-twa.git twa
+
+      - name: Patch TWA config
         run: |
           cd twa
-          keytool -genkey -v -keystore burger.keystore -alias burger -keyalg RSA -keysize 2048 -validity 10000 -storepass burgerstreet2026 -keypass burgerstreet2026 -dname "CN=Burger Street,O=BS,C=PH"
-      - name: Build APK
-        run: cd twa && bubblewrap build --skipPwaValidation
+          sed -i 's/svgomg.firebaseapp.com/guileless-brioche-558e64.netlify.app/g' app/build.gradle
+          sed -i 's|https://svgomg.firebaseapp.com|https://guileless-brioche-558e64.netlify.app|g' app/build.gradle
+          sed -i 's/applicationId "com.jakearchibald.svgomg"/applicationId "com.burgerstreet.inventory"/' app/build.gradle
+          sed -i 's/SVGOMG/Burger Street/g' app/src/main/res/values/strings.xml
+          sed -i 's/svgomg/Burger Street/g' app/src/main/res/values/strings.xml
+
+      - name: Build unsigned APK
+        run: |
+          cd twa
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Sign APK
+        run: |
+          keytool -genkey -v -keystore burger.keystore -alias burger \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass burgerstreet2026 -keypass burgerstreet2026 \
+            -dname "CN=Burger Street,O=BS,C=PH"
+          $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
+            --ks burger.keystore --ks-pass pass:burgerstreet2026 \
+            --key-pass pass:burgerstreet2026 --ks-key-alias burger \
+            --out burger-street-signed.apk \
+            twa/app/build/outputs/apk/release/app-release-unsigned.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: BurgerStreet-APK
-          path: twa/app-release-signed.apk
+          path: burger-street-signed.apk
